@@ -25,6 +25,8 @@ bob 1801
 * Currency Symbol: WND
 * Block Explorer URL: https://blockscout-asset-hub.parity-chains-scw.parity.io
 
+### Deploy IDE
+* https://remix.polkadot.io/
 
 ## features
 
