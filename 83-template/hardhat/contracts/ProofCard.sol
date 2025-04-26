@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "../interfaces/IERC1155Receiver.sol";
+
 /**
  * @title ProofCard
  * @dev 一个简化版的ERC-1155 NFT实现
@@ -315,25 +317,4 @@ contract ProofCard {
             interfaceId == 0xd9b67a26 || // ERC-1155
             interfaceId == 0x01ffc9a7;   // ERC-165
     }
-}
-
-/**
- * @dev ERC1155接收者接口
- */
-interface IERC1155Receiver {
-    function onERC1155Received(
-        address operator,
-        address from,
-        uint256 id,
-        uint256 value,
-        bytes calldata data
-    ) external returns (bytes4);
-    
-    function onERC1155BatchReceived(
-        address operator,
-        address from,
-        uint256[] calldata ids,
-        uint256[] calldata values,
-        bytes calldata data
-    ) external returns (bytes4);
 } 
