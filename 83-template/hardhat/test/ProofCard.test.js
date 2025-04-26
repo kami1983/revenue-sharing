@@ -98,14 +98,14 @@ describe("ProofCard", function () {
     // user1尝试设置URI（应该失败，因为创建者是owner）
     await expect(
       proofCard.connect(user1).setTokenURI(tokenId, "ipfs://QmFail")
-    ).to.be.revertedWith("ProofCard: caller is not token creator");
+    ).to.be.revertedWith("ProofCard: caller is not creator");
   });
 
   it("应该阻止非创建者为代币ID铸造更多代币", async function () {
     // user2尝试为同一ID铸造更多代币（应该失败）
     await expect(
       proofCard.connect(user2).mintMore(user2.address, tokenId, 5, "0x")
-    ).to.be.revertedWith("ProofCard: caller is not token creator");
+    ).to.be.revertedWith("ProofCard: not token creator");
   });
 
   it("应该阻止余额不足的转账", async function () {
@@ -118,7 +118,7 @@ describe("ProofCard", function () {
         20, // 余额只有10
         "0x"
       )
-    ).to.be.revertedWith("ProofCard: insufficient balance for transfer");
+    ).to.be.revertedWith("ProofCard: insufficient balance");
   });
 
   it("应该支持批量转账", async function () {
