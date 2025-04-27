@@ -29,6 +29,9 @@ contract RedPacketLite {
     // Current packet ID
     uint256 private nextPacketId = 1;
     
+    // Re-entrancy guard
+    uint256 private _locked = 1;
+    
     // Events
     event PacketCreated(uint256 indexed packetId, address indexed creator, address tokenAddress, uint256 amount);
     event PacketClaimed(uint256 indexed packetId, address indexed claimer, uint256 amount);
@@ -41,6 +44,7 @@ contract RedPacketLite {
     error InvalidPacket();
     error PacketEmpty();
     error IncorrectPassword();
+    error ReentrancyGuard();
     
     /**
      * @dev Constructor sets the owner to msg.sender
@@ -58,18 +62,29 @@ contract RedPacketLite {
     }
     
     /**
+     * @dev Modifier to prevent re-entrancy attacks
+     */
+    modifier nonReentrant() {
+        if (_locked != 1) revert ReentrancyGuard();
+        _locked = 2;
+        _;
+        _locked = 1;
+    }
+    
+    /**
      * @dev Create a red packet
      * @param tokenAddress Token address
      * @param amount Amount of tokens
      * @param password Password (plaintext)
      * @return Packet ID
      */
-    function createPacket(address tokenAddress, uint256 amount, string calldata password) external returns (uint256) {
+    function createPacket(address tokenAddress, uint256 amount, string calldata password) external nonReentrant returns (uint256) {
         if (tokenAddress == address(0)) revert InvalidTokenAddress();
         if (amount == 0) revert AmountTooLow();
         
         // Transfer tokens to contract
-        if (!IERC20(tokenAddress).transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
+        bool success = IERC20(tokenAddress).transferFrom(msg.sender, address(this), amount);
+        if (!success) revert TransferFailed();
         
         // Calculate password hash
         bytes32 passwordHash = keccak256(abi.encodePacked(password));
@@ -102,7 +117,7 @@ contract RedPacketLite {
      * @param password Password (plaintext)
      * @return Amount claimed
      */
-    function claimPacket(uint256 packetId, string calldata password) external returns (uint256) {
+    function claimPacket(uint256 packetId, string calldata password) external nonReentrant returns (uint256) {
         // Validate packet
         Packet storage packet = packets[packetId];
         if (!packet.isValid) revert InvalidPacket();
@@ -114,13 +129,14 @@ contract RedPacketLite {
         // Calculate claim amount (simplified to claim all)
         uint256 claimAmount = packet.remainingAmount;
         
-        // Update packet state
+        // Update packet state BEFORE transfer (to prevent re-entrancy)
         packet.remainingAmount = 0;
         packet.claimedCount += 1;
         packet.isValid = false;
         
-        // Transfer tokens
-        if (!IERC20(packet.tokenAddress).transfer(msg.sender, claimAmount)) revert TransferFailed();
+        // Transfer tokens using safe call
+        (bool success, ) = _safeTransferERC20(packet.tokenAddress, msg.sender, claimAmount);
+        if (!success) revert TransferFailed();
         
         // Emit event
         emit PacketClaimed(packetId, msg.sender, claimAmount);
@@ -158,8 +174,9 @@ contract RedPacketLite {
      * @param tokenAddress Token address
      * @param amount Amount to withdraw
      */
-    function emergencyWithdraw(address tokenAddress, uint256 amount) external onlyOwner {
-        if (!IERC20(tokenAddress).transfer(owner, amount)) revert TransferFailed();
+    function emergencyWithdraw(address tokenAddress, uint256 amount) external onlyOwner nonReentrant {
+        (bool success, ) = _safeTransferERC20(tokenAddress, owner, amount);
+        if (!success) revert TransferFailed();
     }
     
     /**
@@ -169,5 +186,25 @@ contract RedPacketLite {
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert InvalidTokenAddress();
         owner = newOwner;
+    }
+    
+    /**
+     * @dev Safe ERC20 transfer function that uses call instead of transfer
+     * @param token Token address
+     * @param to Recipient address
+     * @param amount Amount to transfer
+     * @return success Success status
+     * @return data Return data
+     */
+    function _safeTransferERC20(address token, address to, uint256 amount) private returns (bool success, bytes memory data) {
+        bytes memory payload = abi.encodeWithSelector(IERC20.transfer.selector, to, amount);
+        (success, data) = token.call(payload);
+        
+        // Check if transfer was successful according to the ERC20 standard
+        if (success && data.length > 0) {
+            success = abi.decode(data, (bool));
+        }
+        
+        return (success, data);
     }
 } 
