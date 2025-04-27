@@ -42,32 +42,30 @@ describe("RedPacketLite", function() {
       // Create a red packet
       const tx = await redPacketLite.createPacket(token.address, packetAmount, password);
       
-      // Verify the transaction emits the PacketCreated event
+      // Verify the transaction emits the Created event
       await expect(tx)
-        .to.emit(redPacketLite, "PacketCreated")
+        .to.emit(redPacketLite, "Created")
         .withArgs(1, owner.address, token.address, packetAmount);
       
       // Verify red packet info
       const packetInfo = await redPacketLite.getPacketInfo(1);
       
       expect(packetInfo.creator).to.equal(owner.address);
-      expect(packetInfo.tokenAddress).to.equal(token.address);
-      expect(packetInfo.totalAmount).to.equal(packetAmount);
-      expect(packetInfo.remainingAmount).to.equal(packetAmount);
-      expect(packetInfo.claimedCount).to.equal(0);
-      expect(packetInfo.isValid).to.equal(true);
+      expect(packetInfo.token).to.equal(token.address);
+      expect(packetInfo.amount).to.equal(packetAmount);
+      expect(packetInfo.claimed).to.equal(false);
     });
     
     it("should fail to create a red packet with zero amount", async function() {
       await expect(
         redPacketLite.createPacket(token.address, 0, password)
-      ).to.be.revertedWithCustomError(redPacketLite, "AmountTooLow");
+      ).to.be.revertedWithCustomError(redPacketLite, "InvalidArgs");
     });
     
     it("should fail to create a red packet with invalid token address", async function() {
       await expect(
         redPacketLite.createPacket(ethers.constants.AddressZero, packetAmount, password)
-      ).to.be.revertedWithCustomError(redPacketLite, "InvalidTokenAddress");
+      ).to.be.revertedWithCustomError(redPacketLite, "InvalidArgs");
     });
   });
   
@@ -88,9 +86,9 @@ describe("RedPacketLite", function() {
       // Claim the red packet
       const tx = await redPacketLite.connect(user1).claimPacket(packetId, password);
       
-      // Verify the transaction emits the PacketClaimed event
+      // Verify the transaction emits the Claimed event
       await expect(tx)
-        .to.emit(redPacketLite, "PacketClaimed")
+        .to.emit(redPacketLite, "Claimed")
         .withArgs(packetId, user1.address, packetAmount);
       
       // Verify user1's balance has increased
@@ -99,15 +97,13 @@ describe("RedPacketLite", function() {
       
       // Verify red packet status
       const packetInfo = await redPacketLite.getPacketInfo(packetId);
-      expect(packetInfo.remainingAmount).to.equal(0);
-      expect(packetInfo.claimedCount).to.equal(1);
-      expect(packetInfo.isValid).to.equal(false);
+      expect(packetInfo.claimed).to.equal(true);
     });
     
     it("should fail to claim with incorrect password", async function() {
       await expect(
         redPacketLite.connect(user1).claimPacket(packetId, "WRONGPASSWORD")
-      ).to.be.revertedWithCustomError(redPacketLite, "IncorrectPassword");
+      ).to.be.revertedWithCustomError(redPacketLite, "WrongPassword");
     });
     
     it("should fail to claim an already claimed red packet", async function() {
@@ -117,13 +113,13 @@ describe("RedPacketLite", function() {
       // Second claim should fail
       await expect(
         redPacketLite.connect(user2).claimPacket(packetId, password)
-      ).to.be.revertedWithCustomError(redPacketLite, "InvalidPacket");
+      ).to.be.revertedWithCustomError(redPacketLite, "AlreadyClaimed");
     });
     
     it("should fail to claim a non-existent red packet", async function() {
       await expect(
         redPacketLite.connect(user1).claimPacket(999, password)
-      ).to.be.revertedWithCustomError(redPacketLite, "InvalidPacket");
+      ).to.be.revertedWithCustomError(redPacketLite, "InvalidArgs");
     });
   });
   
@@ -178,7 +174,7 @@ describe("RedPacketLite", function() {
     it("should not allow transferring ownership to zero address", async function() {
       await expect(
         redPacketLite.transferOwnership(ethers.constants.AddressZero)
-      ).to.be.revertedWithCustomError(redPacketLite, "InvalidTokenAddress");
+      ).to.be.revertedWithCustomError(redPacketLite, "InvalidArgs");
     });
   });
 }); 
