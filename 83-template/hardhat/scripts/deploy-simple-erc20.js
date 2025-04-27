@@ -1,52 +1,33 @@
 const hre = require("hardhat");
 
 async function main() {
-  console.log("开始部署SimpleTestErc20合约...");
+  const tokenName = "Simple Token";
+  const tokenSymbol = "ST";
+  const tokenDecimals = 18;
+  const initialSupply = 1000000; // 1,000,000 tokens
   
-  // 获取合约工厂
-  const SimpleTestErc20 = await hre.ethers.getContractFactory("SimpleTestErc20");
+  console.log("开始部署SimpleERC20代币...");
+  console.log(`名称: ${tokenName}`);
+  console.log(`符号: ${tokenSymbol}`);
+  console.log(`小数位: ${tokenDecimals}`);
+  console.log(`初始供应量: ${initialSupply} (${initialSupply * 10**tokenDecimals} wei)`);
   
-  // 部署参数
-  const name = "Simple Test Token";
-  const symbol = "STT";
-  const decimals = 18;
-  const initialSupply = hre.ethers.utils.parseUnits("1000000", decimals); // 1,000,000 代币
+  const SimpleERC20 = await hre.ethers.getContractFactory("SimpleERC20");
+  const token = await SimpleERC20.deploy(tokenName, tokenSymbol, tokenDecimals, initialSupply);
   
-  console.log("部署参数:");
-  console.log(`- 名称: ${name}`);
-  console.log(`- 符号: ${symbol}`);
-  console.log(`- 小数位: ${decimals}`);
-  console.log(`- 初始总量: ${hre.ethers.utils.formatUnits(initialSupply, decimals)} (${initialSupply.toString()})`);
+  await token.deployed();
   
-  console.log("部署合约中...");
+  console.log(`SimpleERC20代币已部署到地址: ${token.address}`);
   
-  // 部署合约
-  const simpleToken = await SimpleTestErc20.deploy(
-    name,
-    symbol,
-    decimals,
-    initialSupply
-  );
-  
-  console.log("等待交易确认...");
-  await simpleToken.deployed();
-  
-  console.log("合约已部署到:", simpleToken.address);
-  console.log("部署成功！");
-  
-  // 获取部署者地址
-  const deployer = await simpleToken.signer.getAddress();
-  console.log("部署者地址:", deployer);
-  
-  // 检查部署者代币余额
-  const balance = await simpleToken.balanceOf(deployer);
-  console.log(`部署者余额: ${hre.ethers.utils.formatUnits(balance, decimals)} ${symbol}`);
+  const deployer = (await hre.ethers.getSigners())[0];
+  const deployerBalance = await token.balanceOf(deployer.address);
+  console.log(`部署者地址: ${deployer.address}`);
+  console.log(`部署者代币余额: ${deployerBalance.toString()}`);
 }
 
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("部署过程中发生错误:");
     console.error(error);
     process.exit(1);
   }); 
